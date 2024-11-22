@@ -1,4 +1,6 @@
-# Setting Up and Running the Server
+# Setting Up and Running the Bot
+Update the application.properties file (located in src/main/resources) with your bot's unique values (e.g., telegram.bot.token and telegram.bot.username) and database unique values (e.g., db_name, db_user, db_password) to ensure the bot can authenticate and function properly.
+After that just run:
 ```bash
 docker-compose up --build
 ```
