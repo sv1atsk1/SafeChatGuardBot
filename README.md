@@ -1,4 +1,8 @@
 # Setting Up and Running the Server
+```bash
+docker-compose up --build
+```
+# Setting Up and Running the Server
 
 ## Requirements
 
