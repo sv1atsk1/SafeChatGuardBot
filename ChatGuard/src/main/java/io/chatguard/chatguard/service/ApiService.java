@@ -2,6 +2,8 @@ package io.chatguard.chatguard.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
@@ -26,6 +28,8 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class ApiService {
 
+    private final MeterRegistry meterRegistry;
+
     private final OkHttpClient client = new OkHttpClient();
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -39,32 +43,43 @@ public class ApiService {
     private static final String IA_CLASSIFICATION_URL = "http://your_ip:your_port/get_ia_class/";
 
     public String sendPostRequest(String url, String jsonRequest) throws IOException {
-        RequestBody body = RequestBody.create(
-                jsonRequest,
-                MediaType.parse("application/json; charset=utf-8")
-        );
-        Request request = new Request.Builder()
-                .url(url)
-                .post(body)
-                .addHeader("accept", "application/json")
-                .addHeader("Content-Type", "application/json")
-                .build();
+        Timer.Sample timer = Timer.start(meterRegistry);
+        try {
+            RequestBody body = RequestBody.create(
+                    jsonRequest,
+                    MediaType.parse("application/json; charset=utf-8")
+            );
+            Request request = new Request.Builder()
+                    .url(url)
+                    .post(body)
+                    .addHeader("accept", "application/json")
+                    .addHeader("Content-Type", "application/json")
+                    .build();
 
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                log.error("POST request failed with code: {}", response.code());
-                throw new IOException("Unexpected code " + response);
+            try (Response response = client.newCall(request).execute()) {
+                meterRegistry.counter("api.requests.total", "url", url, "status", "success").increment();
+
+                if (!response.isSuccessful()) {
+                    log.error("POST request failed with code: {}", response.code());
+                    throw new IOException("Unexpected code " + response);
+                }
+
+                if (response.body() == null) {
+                    throw new IOException("Response body is null");
+                }
+
+                return response.body().string();
             }
-
-            if (response.body() == null) {
-                throw new IOException("Response body is null");
-            }
-
-            return response.body().string();
+        } catch (IOException e) {
+            meterRegistry.counter("api.requests.total", "url", url, "status", "error").increment();
+            throw e;
+        } finally {
+            timer.stop(meterRegistry.timer("api.requests.time", "url", url));
         }
     }
 
     public void sendNsfwDecisionRequest(String imagePath, Update update) {
+        Timer.Sample timer = Timer.start(meterRegistry);
         Long chatId = update.getMessage().getChatId();
         double threshold = thresholdService.getChatThreshold(chatId);
         String id = "-1";
@@ -83,6 +98,7 @@ public class ApiService {
             postRequest.setEntity(entity);
 
             try (CloseableHttpResponse response = httpClient.execute(postRequest)) {
+                meterRegistry.counter("api.nsfw.requests", "status", "success").increment();
                 HttpEntity responseEntity = response.getEntity();
                 String responseBody = EntityUtils.toString(responseEntity);
 
@@ -91,7 +107,10 @@ public class ApiService {
             }
 
         } catch (IOException e) {
+            meterRegistry.counter("api.nsfw.requests", "status", "error").increment();
             log.error("Ошибка при отправке запроса NSFW: ", e);
+        } finally {
+            timer.stop(meterRegistry.timer("api.nsfw.request.time"));
         }
     }
 
@@ -109,6 +128,7 @@ public class ApiService {
     }
 
     public void sendClassificationRequest(Long chatId, String messageText, double threshold, Update update) {
+        Timer.Sample timer = Timer.start(meterRegistry);
         String escapedMessageText = messageText.replace("\"", "\\\"");
         String jsonRequest = String.format(Locale.US, "{\"text\": \"%s\", \"threshold\": %.1f, \"id\": \"%s\"}", escapedMessageText, threshold, "-1");
 
@@ -117,14 +137,18 @@ public class ApiService {
         try {
             String response = sendPostRequest(IA_CLASSIFICATION_URL, jsonRequest);
             JsonNode jsonNode = objectMapper.readTree(response);
+            meterRegistry.counter("api.classification.requests", "status", "success").increment();
             if (jsonNode.get("ia_type").asDouble() == 1) {
                 messageService.deleteMessage(update.getMessage());
                 messageService.sendMessage(chatId, "Ваше сообщение удалено, так как оно нарушает правила.");
             }
             log.info(response);
         } catch (Exception e) {
+            meterRegistry.counter("api.classification.requests", "status", "error").increment();
             log.error("Ошибка отправки POST-запроса для анализа текста: {}", e.getMessage());
             messageService.sendMessage(chatId, "Произошла ошибка при анализе текста.");
+        } finally {
+            timer.stop(meterRegistry.timer("api.classification.time"));
         }
     }
 }
