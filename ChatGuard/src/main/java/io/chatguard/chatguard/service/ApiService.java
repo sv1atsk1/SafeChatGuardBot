@@ -18,6 +18,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import java.io.File;
 import java.io.IOException;
@@ -80,7 +81,11 @@ public class ApiService {
 
     public void sendNsfwDecisionRequest(String imagePath, Update update) {
         Timer.Sample timer = Timer.start(meterRegistry);
-        Long chatId = update.getMessage().getChatId();
+
+        Long chatId = (update.getMessage() != null)
+                ? update.getMessage().getChatId()
+                : update.getEditedMessage().getChatId();
+
         double threshold = thresholdService.getChatThreshold(chatId);
         String id = "-1";
 
@@ -119,8 +124,11 @@ public class ApiService {
             JsonNode responseJson = objectMapper.readTree(responseBody);
             double nsfwType = responseJson.get("nsfw_type").asDouble();
 
-            if (nsfwType > chatThreshold && messageService.deleteMessage(update.getMessage())) {
-                messageService.sendMessage(update.getMessage().getChatId(), "Ваше изображение удалено, так как оно нарушает политику чата.");
+            Message targetMessage =
+                    (update.getMessage() != null) ? update.getMessage() : update.getEditedMessage();
+
+            if (nsfwType > chatThreshold && messageService.deleteMessage(targetMessage)) {
+                messageService.sendMessage(targetMessage.getChatId(), "Ваше изображение удалено, так как оно нарушает политику чата.");
             }
         } catch (IOException e) {
             log.error("Ошибка при обработке ответа NSFW: ", e);
@@ -138,8 +146,10 @@ public class ApiService {
             String response = sendPostRequest(IA_CLASSIFICATION_URL, jsonRequest);
             JsonNode jsonNode = objectMapper.readTree(response);
             meterRegistry.counter("api.classification.requests", "status", "success").increment();
+            Message targetMessage =
+                    (update.getMessage() != null) ? update.getMessage() : update.getEditedMessage();
             if (jsonNode.get("ia_type").asDouble() == 1) {
-                messageService.deleteMessage(update.getMessage());
+                messageService.deleteMessage(targetMessage);
                 messageService.sendMessage(chatId, "Ваше сообщение удалено, так как оно нарушает правила.");
             }
             log.info(response);

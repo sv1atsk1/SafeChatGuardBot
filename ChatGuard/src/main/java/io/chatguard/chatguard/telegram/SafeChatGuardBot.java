@@ -71,6 +71,7 @@ public class SafeChatGuardBot extends TelegramLongPollingBot  {
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage()) {
+
             String username = update.getMessage().getFrom().getUserName();
             Long chatId = update.getMessage().getChatId();
 
@@ -85,6 +86,12 @@ public class SafeChatGuardBot extends TelegramLongPollingBot  {
             } else if (update.getMessage().hasText()) {
                 textProcessor.processTextMessage(update);
             } else if (update.getMessage().hasPhoto()) {
+                imageProcessor.processImageMessage(update);
+            }
+        } else if (update.hasEditedMessage()) {
+            if (update.getEditedMessage().hasText()) {
+                textProcessor.processTextMessage(update);
+            } else if (update.getEditedMessage().hasPhoto()) {
                 imageProcessor.processImageMessage(update);
             }
         }

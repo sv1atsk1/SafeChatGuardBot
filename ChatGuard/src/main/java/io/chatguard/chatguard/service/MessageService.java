@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.util.HashSet;
 import java.util.Set;
@@ -63,5 +64,9 @@ public class MessageService {
                 """;
 
         sendMessage(chatId, helpMessage);
+    }
+
+    public Message getMessageFromUpdate(Update update) {
+        return update.hasEditedMessage() ? update.getEditedMessage() : update.getMessage();
     }
 }

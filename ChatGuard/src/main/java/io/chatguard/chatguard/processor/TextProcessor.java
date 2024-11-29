@@ -6,6 +6,7 @@ import io.chatguard.chatguard.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 @Slf4j
@@ -30,17 +31,12 @@ public class TextProcessor {
     private static final String UNKNOWN_COMMAND_MSG = "Неизвестная команда.";
 
     public void processTextMessage(Update update) {
-        String messageText = update.getMessage().getText();
-        Long chatId = update.getMessage().getChatId();
-        String username = update.getMessage().getFrom().getUserName();
+        Message message = messageService.getMessageFromUpdate(update);
+        String messageText = message.getText();
+        Long chatId = message.getChatId();
+        String username = message.getFrom().getUserName();
 
-        if (blacklistService.isUserBlacklisted(username)) {
-            messageService.deleteMessage(update.getMessage());
-            messageService.sendMessage(chatId, "Ваше сообщение удалено, так как вы находитесь в черном списке.");
-            return;
-        }
-
-        if (whitelistService.isUserWhitelisted(username)) {
+        if (isUserBlacklisted(username, update, chatId) || whitelistService.isUserWhitelisted(username)) {
             return;
         }
 
