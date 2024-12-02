@@ -2,8 +2,9 @@ package io.chatguard.chatguard.logger;
 
 import io.chatguard.chatguard.entity.LogEntryEntity;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityTransaction;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Component;
+
 import java.time.LocalDateTime;
 
 @Component
@@ -15,21 +16,23 @@ public class MessageLogger {
         this.entityManager = entityManager;
     }
 
-    public void logMessage(Long chatId, Long userId, String username, String messageText,
-                           String messageType, String removalReason) {
-        EntityTransaction transaction = entityManager.getTransaction();
-        try {
-            transaction.begin();
-            LogEntryEntity logEntryEntity = new LogEntryEntity(
-                    chatId, userId, username, messageText, messageType, removalReason, LocalDateTime.now()
-            );
-            entityManager.persist(logEntryEntity);
-            transaction.commit();
-        } catch (Exception e) {
-            if (transaction.isActive()) {
-                transaction.rollback();
-            }
-            throw e;
-        }
+    @Transactional
+    public void logTextMessage(Long chatId, Long userId, String username, String messageText,
+                               String messageType, String removalReason) {
+
+        LogEntryEntity logEntryEntity = new LogEntryEntity(
+                chatId, userId, username, messageText, messageType, removalReason, LocalDateTime.now());
+
+        entityManager.persist(logEntryEntity);
+    }
+
+    @Transactional
+    public void logImageMessage(Long chatId, Long userId, String username, byte[] image, String messageText,
+                                String messageType, String removalReason) {
+
+        LogEntryEntity logEntryEntity = new LogEntryEntity(
+                chatId, userId, username, image, messageText, messageType, removalReason, LocalDateTime.now());
+
+        entityManager.persist(logEntryEntity);
     }
 }

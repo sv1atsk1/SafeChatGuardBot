@@ -4,7 +4,6 @@ import io.chatguard.chatguard.entity.ChatThresholdEntity;
 import io.chatguard.chatguard.repository.ChatThresholdRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
-import java.util.Optional;
 
 @Service
 public class ThresholdService {
@@ -29,13 +28,8 @@ public class ThresholdService {
     }
 
     @Transactional
-    public String removeChatThreshold(Long chatId) {
-        Optional<ChatThresholdEntity> chatThreshold = thresholdRepository.findByChatId(chatId);
-        if (chatThreshold.isPresent()) {
-            thresholdRepository.deleteByChatId(chatId);
-            return "Порог удален.";
-        } else {
-            return "Порог не установлен для этого чата.";
-        }
+    public void removeChatThreshold(Long chatId) {
+        thresholdRepository.findByChatId(chatId).ifPresent(chatThreshold ->
+            thresholdRepository.deleteByChatId(chatThreshold.getChatId()));
     }
 }

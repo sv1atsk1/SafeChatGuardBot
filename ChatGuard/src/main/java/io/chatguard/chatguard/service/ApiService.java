@@ -2,6 +2,7 @@ package io.chatguard.chatguard.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.chatguard.chatguard.logger.MessageLogger;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
@@ -39,9 +40,11 @@ public class ApiService {
 
     private final MessageService messageService;
 
-    private static final String NSFW_REQUEST_URL = "http://your_ip:your_port/get_nsfw_decision/";
+    private final MessageLogger messageLogger;
 
-    private static final String IA_CLASSIFICATION_URL = "http://your_ip:your_port/get_ia_class/";
+    private static final String NSFW_REQUEST_URL = "http://172.26.176.1:1234/get_nsfw_decision/";
+
+    private static final String IA_CLASSIFICATION_URL = "http://172.26.176.1:1234/get_ia_class/";
 
     public String sendPostRequest(String url, String jsonRequest) throws IOException {
         Timer.Sample timer = Timer.start(meterRegistry);
@@ -81,10 +84,8 @@ public class ApiService {
 
     public void sendNsfwDecisionRequest(String imagePath, Update update) {
         Timer.Sample timer = Timer.start(meterRegistry);
-
-        Long chatId = (update.getMessage() != null)
-                ? update.getMessage().getChatId()
-                : update.getEditedMessage().getChatId();
+        Message message = update.getMessage();
+        Long chatId = (message != null) ? message.getChatId() : update.getEditedMessage().getChatId();
 
         double threshold = thresholdService.getChatThreshold(chatId);
         String id = "-1";
@@ -107,7 +108,7 @@ public class ApiService {
                 HttpEntity responseEntity = response.getEntity();
                 String responseBody = EntityUtils.toString(responseEntity);
 
-                log.info("Ответ от сервера: " + responseBody);
+                log.info("Ответ от сервера: {}", responseBody);
                 processNsfwResponse(responseBody, update, threshold);
             }
 
@@ -127,7 +128,15 @@ public class ApiService {
             Message targetMessage =
                     (update.getMessage() != null) ? update.getMessage() : update.getEditedMessage();
 
+            Long chatId = targetMessage.getChatId();
+            Long userId = targetMessage.getFrom().getId();
+            String username = targetMessage.getFrom().getUserName();
+            String messageText = targetMessage.getText() != null ? targetMessage.getText() : targetMessage.getCaption();
+            String messageType = targetMessage.hasPhoto() ? "IMAGE" : "TEXT";
+            String removalReason = "NSFW content detected";
+
             if (nsfwType > chatThreshold && messageService.deleteMessage(targetMessage)) {
+                messageLogger.logImageMessage(chatId, userId, username, targetMessage.getPhoto().getFirst().getFileId().getBytes(), messageText, messageType, removalReason);
                 messageService.sendMessage(targetMessage.getChatId(), "Ваше изображение удалено, так как оно нарушает политику чата.");
             }
         } catch (IOException e) {
@@ -146,10 +155,16 @@ public class ApiService {
             String response = sendPostRequest(IA_CLASSIFICATION_URL, jsonRequest);
             JsonNode jsonNode = objectMapper.readTree(response);
             meterRegistry.counter("api.classification.requests", "status", "success").increment();
-            Message targetMessage =
-                    (update.getMessage() != null) ? update.getMessage() : update.getEditedMessage();
+            Message targetMessage = (update.getMessage() != null) ? update.getMessage() : update.getEditedMessage();
+
+            Long userId = targetMessage.getFrom().getId();
+            String username = targetMessage.getFrom().getUserName();
+            String messageType = targetMessage.hasPhoto() ? "photo" : "text";
+            String removalReason = jsonNode.get("topic_type").asText();
+
             if (jsonNode.get("ia_type").asDouble() == 1) {
                 messageService.deleteMessage(targetMessage);
+                messageLogger.logTextMessage(chatId, userId, username, messageText, messageType, removalReason);
                 messageService.sendMessage(chatId, "Ваше сообщение удалено, так как оно нарушает правила.");
             }
             log.info(response);

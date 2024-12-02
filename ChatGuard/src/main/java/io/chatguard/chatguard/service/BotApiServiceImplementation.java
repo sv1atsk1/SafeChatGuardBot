@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
+import org.telegram.telegrambots.meta.api.objects.File;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 @Service
@@ -29,7 +30,7 @@ public class BotApiServiceImplementation implements BotApiService {
     }
 
     @Override
-    public org.telegram.telegrambots.meta.api.objects.File getFile(GetFile getFile) throws TelegramApiException {
+    public File getFile(GetFile getFile) throws TelegramApiException {
         return safeChatGuardBot.execute(getFile);
     }
 

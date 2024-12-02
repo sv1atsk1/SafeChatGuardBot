@@ -31,11 +31,15 @@ public class LogEntryEntity {
     @Column(name = "username", nullable = false)
     private String username;
 
+    @Column(name = "image", columnDefinition = "BYTEA")
+    private byte[] image;
+
     @NotNull
     @Size(max = 1000)
     @Column(name = "message_text", columnDefinition = "TEXT")
     private String messageText;
 
+    @NotNull
     @Column(name = "message_type")
     private String messageType;
 
@@ -47,7 +51,6 @@ public class LogEntryEntity {
     @NotNull
     @Past
     @Column(name = "removal_time", nullable = false)
-
     private LocalDateTime removalTime;
 
     public LogEntryEntity() {}
@@ -57,6 +60,18 @@ public class LogEntryEntity {
         this.chatId = chatId;
         this.userId = userId;
         this.username = username;
+        this.messageText = messageText;
+        this.messageType = messageType;
+        this.removalReason = removalReason;
+        this.removalTime = removalTime;
+    }
+
+    public LogEntryEntity(Long chatId, Long userId, String username, byte[] image, String messageText,
+                          String messageType, String removalReason, LocalDateTime removalTime) {
+        this.chatId = chatId;
+        this.userId = userId;
+        this.username = username;
+        this.image = image;
         this.messageText = messageText;
         this.messageType = messageType;
         this.removalReason = removalReason;

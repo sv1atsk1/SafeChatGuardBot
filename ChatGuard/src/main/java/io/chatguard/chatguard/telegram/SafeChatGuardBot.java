@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -71,29 +72,44 @@ public class SafeChatGuardBot extends TelegramLongPollingBot  {
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage()) {
-
-            String username = update.getMessage().getFrom().getUserName();
-            Long chatId = update.getMessage().getChatId();
-
-            if (textProcessor.isUserBlacklisted(username, update, chatId)) {
-                return;
-            }
-
-            if (parameterProcessor.isWaitingForParams(chatId)) {
-                parameterProcessor.processCommandParameter(update, chatId);
-            } else if (update.getMessage().isCommand()) {
-                commandProcessor.processCommand(update, chatId);
-            } else if (update.getMessage().hasText()) {
-                textProcessor.processTextMessage(update);
-            } else if (update.getMessage().hasPhoto()) {
-                imageProcessor.processImageMessage(update);
-            }
+            processMessage(update.getMessage(), update);
         } else if (update.hasEditedMessage()) {
-            if (update.getEditedMessage().hasText()) {
-                textProcessor.processTextMessage(update);
-            } else if (update.getEditedMessage().hasPhoto()) {
-                imageProcessor.processImageMessage(update);
-            }
+            processMessage(update.getEditedMessage(), update);
         }
+    }
+
+    private void processMessage(Message message, Update update) {
+        String username = message.getFrom().getUserName();
+        Long chatId = message.getChatId();
+
+        if (textProcessor.isUserBlacklisted(username, update, chatId)) {
+            return;
+        }
+
+        if (parameterProcessor.isWaitingForParams(chatId)) {
+            parameterProcessor.processCommandParameter(update, chatId);
+            return;
+        }
+
+        if (message.isCommand()) {
+            commandProcessor.processCommand(update, chatId);
+            return;
+        }
+
+        if (message.hasText()) {
+            textProcessor.processTextMessage(update);
+        }
+
+        if (message.hasPhoto()) {
+            processPhotoMessage(message, update);
+        }
+    }
+
+    private void processPhotoMessage(org.telegram.telegrambots.meta.api.objects.Message message, Update update) {
+        String caption = message.getCaption();
+        if (caption != null && !caption.isEmpty()) {
+            textProcessor.processTextMessage(update);
+        }
+        imageProcessor.processImageMessage(update);
     }
 }

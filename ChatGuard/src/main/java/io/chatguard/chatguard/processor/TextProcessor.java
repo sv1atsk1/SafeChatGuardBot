@@ -33,6 +33,7 @@ public class TextProcessor {
     public void processTextMessage(Update update) {
         Message message = messageService.getMessageFromUpdate(update);
         String messageText = message.getText();
+        String textToProcess = (messageText != null && !messageText.isEmpty()) ? messageText : message.getCaption();
         Long chatId = message.getChatId();
         String username = message.getFrom().getUserName();
 
@@ -44,9 +45,9 @@ public class TextProcessor {
         log.info("Threshold for chat {}: {}", chatId, threshold);
 
         if (waitingParametersManager.hasPendingCommand(chatId)) {
-            handleCommandParameter(chatId, messageText);
+            handleCommandParameter(chatId, textToProcess);
         } else {
-            handleStandardMessage(chatId, messageText, threshold, update);
+            handleStandardMessage(chatId, textToProcess, threshold, update);
         }
     }
 

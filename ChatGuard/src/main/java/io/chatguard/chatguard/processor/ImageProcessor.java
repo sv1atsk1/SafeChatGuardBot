@@ -40,6 +40,7 @@ public class ImageProcessor {
             if (textProcessor.isUserBlacklisted(username, update, chatId)){
                 messageService.deleteMessage(update.getMessage());
                 messageService.sendMessage(chatId, "Ваше сообщение удалено, так как вы находитесь в черном списке.");
+                return;
             }
 
             if(whitelistService.isUserWhitelisted(username)) {
