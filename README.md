@@ -10,7 +10,7 @@ docker-compose up --build
 
 To run the server, you will need the following dependencies:
 
-- **openpy**: `4.10.0.84`  
+- **opencv-python**: `4.10.0.84`  
 - **torch**: `2.3.0`  
 - **transformers**: `4.45.1`  
 - **numpy**: `1.26.4`  
