@@ -39,7 +39,7 @@ To do this, ensure the following software is installed on your system:
  C:\Install_Path\TensorRT-10.1.0.6\
  ```
    
-3. Navigate to the Python installation path for version 3.12 and install the required Python package:
+2. Navigate to the Python installation path for version 3.12 and install the required Python package:
 
 ```bash
 pip install pycuda
